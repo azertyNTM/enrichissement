@@ -34,3 +34,12 @@ def test_import_registry_paginates_and_is_idempotent(conn):
         assert import_registry(conn, client, "26") == 1
     assert conn.execute("SELECT COUNT(*) FROM companies").fetchone()[0] == 2
     assert conn.execute("SELECT COUNT(*) FROM persons WHERE siren = '123456789'").fetchone()[0] == 3
+
+
+@respx.mock
+def test_import_registry_skips_siege_outside_departement(conn):
+    paris = dict(RAW_COMPANY, siren="333333333", siege=dict(RAW_COMPANY["siege"], departement="92"))
+    respx.get(API_URL).mock(return_value=httpx.Response(200, json={"results": [paris, RAW_COMPANY], "total_pages": 1}))
+    with httpx.Client() as client:
+        assert import_registry(conn, client, "26", limit=1) == 1
+    assert [r[0] for r in conn.execute("SELECT siren FROM companies")] == ["123456789"]
