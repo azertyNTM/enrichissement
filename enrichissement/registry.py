@@ -40,6 +40,9 @@ def fetch_pages(client: httpx.Client, naf: str, departement: str, max_results: i
             raise RuntimeError("API Recherche d'entreprises : trop de requêtes (429)")
         data = r.json()
         for raw in data.get("results", []):
+            # l'API filtre sur n'importe quel établissement : on ne garde que les sièges du département
+            if (raw.get("siege") or {}).get("departement") != departement:
+                continue
             yield raw
             yielded += 1
             if max_results and yielded >= max_results:
