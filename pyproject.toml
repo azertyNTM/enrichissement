@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "enrichissement"
+version = "0.1.0"
+description = "Enrichissement fiable de leads (cabinets d'expertise comptable) à partir du registre officiel"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "httpx>=0.27",
+  "beautifulsoup4>=4.12",
+  "dnspython>=2.6",
+  "typer>=0.12",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "respx>=0.21"]
+
+[project.scripts]
+enrich = "enrichissement.cli:app"
+
+[tool.setuptools]
+packages = ["enrichissement"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

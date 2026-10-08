@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.env
+*.db
+*.db-journal
+*.csv
+!tests/fixtures/*.csv
+.venv/
+*.egg-info/
+.pytest_cache/
