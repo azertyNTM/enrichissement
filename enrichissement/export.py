@@ -13,7 +13,7 @@ COLUMNS = [
     "siren", "raison_sociale", "commune", "code_postal", "effectif", "site_web", "site_preuve_siren",
     "telephone", "telephone_source", "email_cabinet", "email_cabinet_score",
     "prenom", "nom", "qualite", "email", "email_score", "email_source", "email_statut", "email_url_source",
-    "linkedin_recherche", "source_dirigeant", "collecte_le",
+    "linkedin_url", "linkedin_score", "linkedin_recherche", "source_dirigeant", "collecte_le",
 ]
 
 
@@ -36,7 +36,7 @@ def rows(conn: sqlite3.Connection, min_score: int, include_all: bool = False) ->
         if cab is not None and is_opted_out(conn, cab["valeur"]):
             cab = None
         persons = conn.execute(
-            "SELECT * FROM persons WHERE siren = ? AND type_dirigeant = 'personne physique' AND opt_out = 0",
+            "SELECT * FROM persons WHERE siren = ? AND principal = 1 AND opt_out = 0",
             (c["siren"],)).fetchall()
         for p in persons:
             email = _best(conn, c["siren"], "email_dirigeant", p["id"])
@@ -58,6 +58,7 @@ def rows(conn: sqlite3.Connection, min_score: int, include_all: bool = False) ->
                 "email_source": email["source"] if email else "",
                 "email_statut": email["statut_verif"] if email else (p["email_statut"] or ""),
                 "email_url_source": (email["url_source"] or "") if email else "",
+                "linkedin_url": p["linkedin_url"] or "", "linkedin_score": p["linkedin_score"] or "",
                 "linkedin_recherche": linkedin_search_url(p["prenom_usuel"], p["nom"], c["raison_sociale"]),
                 "source_dirigeant": "registre (recherche-entreprises.api.gouv.fr)",
                 "collecte_le": p["collecte_le"],

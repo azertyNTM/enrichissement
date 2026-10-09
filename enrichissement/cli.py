@@ -8,7 +8,7 @@ from typing import Optional
 import httpx
 import typer
 
-from . import emails, export, feedback, gdpr, registry, scrape, website
+from . import emails, export, feedback, gdpr, linkedin, registry, scrape, website
 from .config import Settings
 from .db import connect, now
 from .fetch import Fetcher, make_client
@@ -52,8 +52,28 @@ def _do_websites(s, conn, limit, retry):
             typer.echo(f"Configuration : {exc} (voir .env.example)", err=True)
             raise typer.Exit(2)
         fetcher = Fetcher(client, s.user_agent, s.http_min_interval)
-        stats = website.run(conn, fetcher, provider, limit=limit, retry=retry)
+        try:
+            stats = website.run(conn, fetcher, provider, limit=limit, retry=retry)
+        except httpx.HTTPStatusError as exc:
+            typer.echo(f"Recherche web refusée ({exc.response.status_code}) : {exc.response.text[:200]}", err=True)
+            raise typer.Exit(1)
     _log(conn, "sites", stats, debut)
+
+
+def _do_linkedin(s, conn, limit, retry):
+    debut = now()
+    with make_client(s.http_timeout) as client:
+        try:
+            provider = make_provider(s.search_provider, client, s.brave_api_key, s.serper_api_key)
+        except ValueError as exc:
+            typer.echo(f"Configuration : {exc} (voir .env.example)", err=True)
+            raise typer.Exit(2)
+        try:
+            stats = linkedin.run(conn, provider, limit=limit, retry=retry)
+        except httpx.HTTPStatusError as exc:
+            typer.echo(f"Recherche web refusée ({exc.response.status_code}) : {exc.response.text[:200]}", err=True)
+            raise typer.Exit(1)
+    _log(conn, "linkedin", stats, debut)
 
 
 def _do_scrape(s, conn, limit):
@@ -89,6 +109,14 @@ def cmd_websites(limit: Optional[int] = None,
     _do_websites(s, conn, limit, retry)
 
 
+@app.command("linkedin")
+def cmd_linkedin(limit: Optional[int] = None,
+                 retry: bool = typer.Option(False, help="Retenter les dirigeants « non trouvés »")):
+    """Étape 2c : trouve le profil LinkedIn de chaque dirigeant (nom + cabinet vérifiés)."""
+    s, conn = _ctx()
+    _do_linkedin(s, conn, limit, retry)
+
+
 @app.command("scrape")
 def cmd_scrape(limit: Optional[int] = None):
     """Étape 3 : extrait téléphone et emails publiés sur les sites validés."""
@@ -113,6 +141,7 @@ def cmd_run(dept: str = typer.Option(..., "--dept"), naf: str = "69.20Z",
     s, conn = _ctx()
     _do_registry(s, conn, dept, naf, limit)
     _do_websites(s, conn, limit, False)
+    _do_linkedin(s, conn, limit, False)
     _do_scrape(s, conn, limit)
     _do_emails(s, conn, s.smtp_enabled if smtp is None else smtp, limit)
 
@@ -170,10 +199,12 @@ def cmd_stats():
     typer.echo(f"Cabinets : {q('SELECT COUNT(*) FROM companies')}")
     for statut, n in conn.execute("SELECT domaine_statut, COUNT(*) FROM companies GROUP BY 1"):
         typer.echo(f"  site {statut} : {n}")
-    n_pers = q("SELECT COUNT(*) FROM persons WHERE type_dirigeant = 'personne physique'")
+    n_pers = q("SELECT COUNT(*) FROM persons WHERE principal = 1")
     n_tel = q("SELECT COUNT(DISTINCT siren) FROM contacts WHERE type = 'telephone'")
-    typer.echo(f"Dirigeants (personnes physiques) : {n_pers}")
+    typer.echo(f"Dirigeants principaux : {n_pers}")
     typer.echo(f"Cabinets avec téléphone : {n_tel}")
+    n_li = q("SELECT COUNT(*) FROM persons WHERE linkedin_statut = 'trouve'")
+    typer.echo(f"Profils LinkedIn trouvés : {n_li}")
     for label, lo in (("≥ 90", 90), ("≥ 60", 60), ("≥ 40", 40)):
         n = q(f"SELECT COUNT(DISTINCT person_id) FROM contacts WHERE type='email_dirigeant' AND score >= {lo}")
         typer.echo(f"Emails dirigeants {label} : {n}")

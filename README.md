@@ -22,6 +22,7 @@ cp .env.example .env   # puis renseigner BRAVE_API_KEY ou SERPER_API_KEY
 ```bash
 enrich registry --dept 26            # 1. cabinets actifs NAF 69.20Z de la Drôme (API publique, sans clé)
 enrich websites                      # 2. recherche du site + validation par SIREN (clé Brave ou Serper)
+enrich linkedin                      # 2c. profil LinkedIn des dirigeants (nom + cabinet vérifiés)
 enrich scrape                        # 3. téléphone, emails publiés, motif d'email
 enrich emails                        # 4. email des dirigeants (SMTP si SMTP_ENABLED=true ou --smtp)
 enrich export leads.csv              # 5. export des dirigeants dont l'email a un score ≥ EXPORT_MIN_SCORE (85)

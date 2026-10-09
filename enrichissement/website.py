@@ -135,10 +135,7 @@ def find_website(conn: sqlite3.Connection, fetcher: Fetcher, provider: SearchPro
                  company: sqlite3.Row) -> dict | None:
     tried: set[str] = set()
     for query in build_queries(company):
-        try:
-            results = provider.search(query)
-        except Exception:  # noqa: BLE001 - une erreur d'API ne doit pas arrêter le lot
-            continue
+        results = provider.search(query)  # une erreur d'API arrête le lot (reprenable) au lieu de tout classer « non trouvé »
         for root in candidate_sites(results)[:MAX_CANDIDATES]:
             if root in tried:
                 continue

@@ -43,3 +43,21 @@ def test_import_registry_skips_siege_outside_departement(conn):
     with httpx.Client() as client:
         assert import_registry(conn, client, "26", limit=1) == 1
     assert [r[0] for r in conn.execute("SELECT siren FROM companies")] == ["123456789"]
+
+
+def test_principals():
+    from enrichissement.registry import mark_principals
+
+    def run(*qualites):
+        persons = [{"qualite": q, "type_dirigeant": "personne physique"} for q in qualites]
+        mark_principals(persons)
+        return [p["principal"] for p in persons]
+
+    # SAS : le président seul, pas les DG
+    assert run("Président de SAS", "Directeur Général", "Directeur Général") == [1, 0, 0]
+    # co-gérants : tous les deux
+    assert run("Gérant", "Gérant", "Commissaire aux comptes titulaire") == [1, 1, 0]
+    # président = holding (personne morale) : les DG deviennent principaux
+    assert run("Directeur Général", "Directeur général délégué", "Administrateur") == [1, 0, 0]
+    # entrepreneur individuel (qualité vide)
+    assert run("") == [1]
