@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import sqlite3
 import time
 from typing import Iterator
@@ -53,6 +54,28 @@ def fetch_pages(client: httpx.Client, naf: str, departement: str, max_results: i
         time.sleep(pause)  # l'API autorise ~7 requêtes/s
 
 
+# Mandats qui ne dirigent pas le cabinet au quotidien.
+NON_DIRIGEANT = re.compile(r"commissaire|administrateur|d[eé]l[eé]gu[eé]|surveillance|liquidateur", re.IGNORECASE)
+
+
+def qualite_rank(qualite: str) -> int:
+    """0 = tient les rênes (président, gérant, entrepreneur individuel), 1 = directeur général, 2 = autre."""
+    q = qualite.lower()
+    if not q or "président" in q or "president" in q or "gérant" in q or "gerant" in q:
+        return 0
+    if "directeur général" in q or "directeur general" in q:
+        return 1
+    return 2
+
+
+def mark_principals(persons: list[dict]) -> None:
+    """Dirigeant principal = la personne physique au rang le plus élevé (plusieurs si co-gérants)."""
+    eligible = [p for p in persons if p["type_dirigeant"] == "personne physique" and not NON_DIRIGEANT.search(p["qualite"])]
+    best = min((qualite_rank(p["qualite"]) for p in eligible), default=None)
+    for p in persons:
+        p["principal"] = int(p in eligible and qualite_rank(p["qualite"]) == best)
+
+
 def parse_company(raw: dict) -> tuple[dict, list[dict]]:
     siege = raw.get("siege") or {}
     code = raw.get("tranche_effectif_salarie") or "NN"
@@ -85,7 +108,9 @@ def parse_company(raw: dict) -> tuple[dict, list[dict]]:
             "qualite": d.get("qualite") or "",
             "type_dirigeant": "personne physique",
         })
-    return company, [p for p in persons if p["nom"]]
+    persons = [p for p in persons if p["nom"]]
+    mark_principals(persons)
+    return company, persons
 
 
 def save_company(conn: sqlite3.Connection, company: dict, persons: list[dict]) -> None:
@@ -100,11 +125,11 @@ def save_company(conn: sqlite3.Connection, company: dict, persons: list[dict]) -
     )
     for p in persons:
         conn.execute(
-            """INSERT INTO persons (siren, nom, prenoms, prenom_usuel, qualite, type_dirigeant, collecte_le)
-               VALUES (?, ?, ?, ?, ?, ?, ?)
-               ON CONFLICT (siren, nom, prenoms, qualite) DO NOTHING""",
+            """INSERT INTO persons (siren, nom, prenoms, prenom_usuel, qualite, type_dirigeant, principal, collecte_le)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+               ON CONFLICT (siren, nom, prenoms, qualite) DO UPDATE SET principal = excluded.principal""",
             (company["siren"], p["nom"], p["prenoms"], p["prenom_usuel"], p["qualite"],
-             p["type_dirigeant"], ts),
+             p["type_dirigeant"], p["principal"], ts),
         )
 
 

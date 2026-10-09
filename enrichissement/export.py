@@ -36,7 +36,7 @@ def rows(conn: sqlite3.Connection, min_score: int, include_all: bool = False) ->
         if cab is not None and is_opted_out(conn, cab["valeur"]):
             cab = None
         persons = conn.execute(
-            "SELECT * FROM persons WHERE siren = ? AND type_dirigeant = 'personne physique' AND opt_out = 0",
+            "SELECT * FROM persons WHERE siren = ? AND principal = 1 AND opt_out = 0",
             (c["siren"],)).fetchall()
         for p in persons:
             email = _best(conn, c["siren"], "email_dirigeant", p["id"])

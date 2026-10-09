@@ -199,9 +199,9 @@ def cmd_stats():
     typer.echo(f"Cabinets : {q('SELECT COUNT(*) FROM companies')}")
     for statut, n in conn.execute("SELECT domaine_statut, COUNT(*) FROM companies GROUP BY 1"):
         typer.echo(f"  site {statut} : {n}")
-    n_pers = q("SELECT COUNT(*) FROM persons WHERE type_dirigeant = 'personne physique'")
+    n_pers = q("SELECT COUNT(*) FROM persons WHERE principal = 1")
     n_tel = q("SELECT COUNT(DISTINCT siren) FROM contacts WHERE type = 'telephone'")
-    typer.echo(f"Dirigeants (personnes physiques) : {n_pers}")
+    typer.echo(f"Dirigeants principaux : {n_pers}")
     typer.echo(f"Cabinets avec téléphone : {n_tel}")
     n_li = q("SELECT COUNT(*) FROM persons WHERE linkedin_statut = 'trouve'")
     typer.echo(f"Profils LinkedIn trouvés : {n_li}")

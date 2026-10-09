@@ -17,12 +17,9 @@ from .db import now
 from .names import ascii_lower, first_name_variants, last_name_variants
 from .search import SearchProvider
 
-# Le registre liste aussi des mandats qui ne dirigent pas le cabinet : inutile de les chercher.
-EXCLUDED_QUALITES = re.compile(r"commissaire|administrateur|d[eé]l[eé]gu[eé]|surveillance", re.IGNORECASE)
-
 # Mots trop communs dans les raisons sociales pour prouver quoi que ce soit.
 GENERIC_WORDS = {
-    "cabinet", "expertise", "expert", "experts", "comptable", "comptables", "comptabilite", "conseil",
+    "cabinet", "expertise", "expert", "experts", "comptable", "comptables", "compta", "comptabilite", "conseil",
     "conseils", "audit", "gestion", "associes", "associe", "partenaires", "societe", "sarl", "sas",
     "sasu", "selarl", "selas", "eurl", "scp", "groupe", "france", "et", "de", "du", "des", "la", "le",
     "les", "en", "and", "fiduciaire", "entreprise", "entreprises", "office",
@@ -63,8 +60,8 @@ def score_result(title: str, snippet: str, prenom: str, nom: str, tokens: set[st
     if not name_in(title, prenom, nom):
         return 0
     text = norm(f"{title} {snippet}")
-    # le nom de famille du dirigeant figure souvent dans la raison sociale : il ne prouve rien
-    proof = tokens - set(norm(nom).split())
+    # le nom du dirigeant figure souvent dans la raison sociale (« Cabinet Gilles Deves ») : il ne prouve rien
+    proof = tokens - set(norm(f"{prenom} {nom}").split())
     if any(f" {w} " in text for w in proof):
         return 90
     if (commune and norm(commune) in text) or JOB_HINTS.search(f"{title} {snippet}"):
@@ -80,7 +77,8 @@ def build_queries(prenom: str, nom: str, raison_sociale: str, commune: str) -> l
 
 
 def find_profile(provider: SearchProvider, person: sqlite3.Row) -> dict | None:
-    prenom, nom = person["prenom_usuel"], person["nom"]
+    # « Granon (Colombet) » : le registre ajoute le nom d'usage entre parenthèses
+    prenom, nom = person["prenom_usuel"], re.sub(r"\s*\(.*?\)", "", person["nom"]).strip()
     tokens = company_tokens(person["raison_sociale"], person["sigle"])
     best = None
     for query in build_queries(prenom, nom, person["raison_sociale"], person["commune"] or ""):
@@ -102,16 +100,12 @@ def run(conn: sqlite3.Connection, provider: SearchProvider, limit: int | None = 
         else "p.linkedin_statut IS NULL"
     rows = conn.execute(
         "SELECT p.*, c.raison_sociale, c.sigle, c.commune FROM persons p JOIN companies c USING (siren) "
-        f"WHERE {statut} AND p.type_dirigeant = 'personne physique' AND p.opt_out = 0 AND c.opt_out = 0 "
+        f"WHERE {statut} AND p.principal = 1 AND p.opt_out = 0 AND c.opt_out = 0 "
         "AND p.prenom_usuel != '' ORDER BY p.siren, p.id" + (" LIMIT ?" if limit else ""),
         (limit,) if limit else (),
     ).fetchall()
-    stats = {"traites": 0, "trouves": 0, "non_trouves": 0, "ignores": 0}
+    stats = {"traites": 0, "trouves": 0, "non_trouves": 0}
     for person in rows:
-        if EXCLUDED_QUALITES.search(person["qualite"]):
-            conn.execute("UPDATE persons SET linkedin_statut = 'ignore' WHERE id = ?", (person["id"],))
-            stats["ignores"] += 1
-            continue
         profile = find_profile(provider, person)
         if profile:
             conn.execute("UPDATE persons SET linkedin_url = ?, linkedin_titre = ?, linkedin_score = ?, "

@@ -15,7 +15,7 @@ RAW_COMPANY = {
               "libelle_commune": "VALENCE", "departement": "26", "siret": "12345678900012"},
     "dirigeants": [
         {"nom": "DUPONT", "prenoms": "JEAN PIERRE", "qualite": "Gérant", "type_dirigeant": "personne physique"},
-        {"nom": "MARTIN", "prenoms": "Élodie", "qualite": "Associé", "type_dirigeant": "personne physique"},
+        {"nom": "MARTIN", "prenoms": "Élodie", "qualite": "Gérant", "type_dirigeant": "personne physique"},
         {"siren": "987654321", "denomination": "HOLDING DUPONT", "qualite": "Associé",
          "type_dirigeant": "personne morale"},
     ],

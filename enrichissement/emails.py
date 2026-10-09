@@ -48,7 +48,7 @@ def persons_to_process(conn: sqlite3.Connection, siren: str, smtp: bool) -> list
         """SELECT p.*, (SELECT MAX(score) FROM contacts c
                         WHERE c.person_id = p.id AND c.type = 'email_dirigeant') AS best
            FROM persons p
-           WHERE p.siren = ? AND p.type_dirigeant = 'personne physique' AND p.opt_out = 0
+           WHERE p.siren = ? AND p.principal = 1 AND p.opt_out = 0
              AND p.prenom_usuel != ''""",
         (siren,),
     ).fetchall()

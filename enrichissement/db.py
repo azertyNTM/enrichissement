@@ -45,12 +45,13 @@ CREATE TABLE IF NOT EXISTS persons (
     prenom_usuel   TEXT NOT NULL DEFAULT '',
     qualite        TEXT NOT NULL DEFAULT '',
     type_dirigeant TEXT NOT NULL DEFAULT 'personne physique',
+    principal      INTEGER NOT NULL DEFAULT 0,  -- 1 = celui qui tient les rênes (seul ciblé)
     opt_out        INTEGER NOT NULL DEFAULT 0,
     email_statut   TEXT,  -- NULL | trouve_site | devine | aucun_valide | pas_de_mx | bounce
     linkedin_url    TEXT,
     linkedin_titre  TEXT,  -- titre du résultat de recherche (preuve)
     linkedin_score  INTEGER,
-    linkedin_statut TEXT,  -- NULL | trouve | non_trouve | ignore
+    linkedin_statut TEXT,  -- NULL | trouve | non_trouve
     linkedin_le     TEXT,
     source         TEXT NOT NULL DEFAULT 'registre',
     collecte_le    TEXT NOT NULL,

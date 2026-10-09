@@ -36,14 +36,12 @@ class FakeProvider:
 
 def test_run(company_conn):
     conn = company_conn
-    conn.execute("INSERT INTO persons (siren, nom, prenoms, prenom_usuel, qualite, collecte_le) "
-                 "VALUES ('123456789', 'Durand', 'Luc', 'Luc', 'Commissaire aux comptes titulaire', 'x')")
     provider = FakeProvider([
         SearchResult("https://www.linkedin.com/company/cde"),
         SearchResult("https://fr.linkedin.com/in/jean-dupont-cde/", "Jean Dupont - Gérant - CDE | LinkedIn"),
     ])
     stats = run(conn, provider)
-    assert stats == {"traites": 2, "trouves": 1, "non_trouves": 1, "ignores": 1}
+    assert stats == {"traites": 2, "trouves": 1, "non_trouves": 1}  # Dupont et Martin, co-gérants
     jean = conn.execute("SELECT * FROM persons WHERE nom = 'Dupont'").fetchone()
     assert (jean["linkedin_url"], jean["linkedin_score"]) == ("https://www.linkedin.com/in/jean-dupont-cde", 90)
     # reprenable : rien à refaire au second passage
@@ -62,3 +60,9 @@ def test_api_error_does_not_mark_not_found(company_conn):
     with pytest.raises(httpx.HTTPStatusError):
         run(company_conn, Broken())
     assert company_conn.execute("SELECT COUNT(*) FROM persons WHERE linkedin_statut = 'non_trouve'").fetchone()[0] == 0
+
+
+def test_name_in_company_name_is_not_proof():
+    # « GILLES DEVES » : ni le prénom ni le nom ne prouvent le lien avec le cabinet
+    tokens = {"gilles", "deves"}
+    assert score_result("Gilles Deves - Directeur de site", "", "Gilles", "Deves", tokens, "Valence") == 0
