@@ -47,6 +47,11 @@ CREATE TABLE IF NOT EXISTS persons (
     type_dirigeant TEXT NOT NULL DEFAULT 'personne physique',
     opt_out        INTEGER NOT NULL DEFAULT 0,
     email_statut   TEXT,  -- NULL | trouve_site | devine | aucun_valide | pas_de_mx | bounce
+    linkedin_url    TEXT,
+    linkedin_titre  TEXT,  -- titre du résultat de recherche (preuve)
+    linkedin_score  INTEGER,
+    linkedin_statut TEXT,  -- NULL | trouve | non_trouve | ignore
+    linkedin_le     TEXT,
     source         TEXT NOT NULL DEFAULT 'registre',
     collecte_le    TEXT NOT NULL,
     UNIQUE (siren, nom, prenoms, qualite)
