@@ -57,7 +57,8 @@ def name_in(text: str, prenom: str, nom: str) -> bool:
 
 
 def score_result(title: str, snippet: str, prenom: str, nom: str, tokens: set[str], commune: str) -> int:
-    if not name_in(title, prenom, nom):
+    # titre LinkedIn = « Prénom Nom - Poste » : le nom doit être celui du titulaire, pas du cabinet cité après
+    if not name_in(re.split(r"\s[-–|]\s", title)[0], prenom, nom):
         return 0
     text = norm(f"{title} {snippet}")
     # le nom du dirigeant figure souvent dans la raison sociale (« Cabinet Gilles Deves ») : il ne prouve rien

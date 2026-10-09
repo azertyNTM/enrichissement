@@ -66,3 +66,7 @@ def test_name_in_company_name_is_not_proof():
     # « GILLES DEVES » : ni le prénom ni le nom ne prouvent le lien avec le cabinet
     tokens = {"gilles", "deves"}
     assert score_result("Gilles Deves - Directeur de site", "", "Gilles", "Deves", tokens, "Valence") == 0
+
+
+def test_name_must_be_profile_owner():
+    assert score_result("MARC TOURNIAIRE - sas cabinet jean robin", "", "Jean", "Robin", {"robin"}, "") == 0
