@@ -13,12 +13,23 @@ COLUMNS = [
     "siren", "raison_sociale", "commune", "code_postal", "effectif", "site_web", "site_preuve_siren",
     "telephone", "telephone_source", "email_cabinet", "email_cabinet_score",
     "prenom", "nom", "qualite", "email", "email_score", "email_source", "email_statut", "email_url_source",
-    "linkedin_url", "linkedin_score", "linkedin_recherche", "source_dirigeant", "collecte_le",
+    "mobile_conseil", "linkedin_url", "linkedin_score", "linkedin_recherche", "source_dirigeant", "collecte_le",
 ]
 
 
 def linkedin_search_url(prenom: str, nom: str, raison_sociale: str) -> str:
     return "https://www.linkedin.com/search/results/people/?keywords=" + quote_plus(f"{prenom} {nom} {raison_sociale}")
+
+
+# 0 à 2 salariés (ou non employeur) : au standard, c'est en général le dirigeant qui décroche.
+PETITS_EFFECTIFS = {"NN", "00", "01"}
+
+
+def mobile_conseil(effectif_code: str | None, telephone: bool, linkedin: bool) -> str:
+    """Faut-il payer un mobile ? 'standard_suffit' | 'a_acheter' | 'sans_linkedin' (aucun fournisseur ne le trouvera)."""
+    if telephone and (effectif_code or "NN") in PETITS_EFFECTIFS:
+        return "standard_suffit"
+    return "a_acheter" if linkedin else "sans_linkedin"
 
 
 def _best(conn, siren, type_, person_id=0):
@@ -58,6 +69,7 @@ def rows(conn: sqlite3.Connection, min_score: int, include_all: bool = False) ->
                 "email_source": email["source"] if email else "",
                 "email_statut": email["statut_verif"] if email else (p["email_statut"] or ""),
                 "email_url_source": (email["url_source"] or "") if email else "",
+                "mobile_conseil": mobile_conseil(c["effectif_code"], tel is not None, bool(p["linkedin_url"])),
                 "linkedin_url": p["linkedin_url"] or "", "linkedin_score": p["linkedin_score"] or "",
                 "linkedin_recherche": linkedin_search_url(p["prenom_usuel"], p["nom"], c["raison_sociale"]),
                 "source_dirigeant": "registre (recherche-entreprises.api.gouv.fr)",

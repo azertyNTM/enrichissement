@@ -79,3 +79,12 @@ def test_purge_keeps_converted(company_conn):
     company_conn.execute("UPDATE companies SET converti = 0")
     assert gdpr.purge(company_conn, years=3) == 1
     assert company_conn.execute("SELECT COUNT(*) FROM persons").fetchone()[0] == 0
+
+
+def test_mobile_conseil():
+    from enrichissement.export import mobile_conseil
+    assert mobile_conseil("01", telephone=True, linkedin=True) == "standard_suffit"
+    assert mobile_conseil(None, telephone=True, linkedin=False) == "standard_suffit"
+    assert mobile_conseil("01", telephone=False, linkedin=True) == "a_acheter"  # pas de standard connu
+    assert mobile_conseil("11", telephone=True, linkedin=True) == "a_acheter"
+    assert mobile_conseil("11", telephone=True, linkedin=False) == "sans_linkedin"

@@ -24,6 +24,7 @@ enrich registry --dept 26            # 1. cabinets actifs NAF 69.20Z de la Drôm
 enrich websites                      # 2. recherche du site + validation par SIREN (clé Brave ou Serper)
 enrich linkedin                      # 2c. profil LinkedIn des dirigeants (nom + cabinet vérifiés)
 enrich scrape                        # 3. téléphone, emails publiés, motif d'email
+enrich standard                      # 3b. standard via Google Maps (code postal + nom vérifiés)
 enrich emails                        # 4. email des dirigeants (SMTP si SMTP_ENABLED=true ou --smtp)
 enrich export leads.csv              # 5. export des dirigeants dont l'email a un score ≥ EXPORT_MIN_SCORE (85)
 enrich run --dept 26 --limit 20      # tout d'un coup (sur un échantillon)

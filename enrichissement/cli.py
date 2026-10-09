@@ -8,11 +8,11 @@ from typing import Optional
 import httpx
 import typer
 
-from . import emails, export, feedback, gdpr, linkedin, registry, scrape, website
+from . import emails, export, feedback, gdpr, linkedin, maps, registry, scrape, website
 from .config import Settings
 from .db import connect, now
 from .fetch import Fetcher, make_client
-from .search import make_provider
+from .search import make_provider, serper_places
 from .smtp_verify import SmtpVerifier, check_port25
 
 app = typer.Typer(help="Enrichissement fiable de leads (cabinets d'expertise comptable, NAF 69.20Z).",
@@ -57,6 +57,9 @@ def _do_websites(s, conn, limit, retry):
         except httpx.HTTPStatusError as exc:
             typer.echo(f"Recherche web refusée ({exc.response.status_code}) : {exc.response.text[:200]}", err=True)
             raise typer.Exit(1)
+        except httpx.TransportError as exc:
+            typer.echo(f"Recherche web injoignable ({exc!r}) : relancez, le travail fait est conservé", err=True)
+            raise typer.Exit(1)
     _log(conn, "sites", stats, debut)
 
 
@@ -73,6 +76,9 @@ def _do_linkedin(s, conn, limit, retry):
         except httpx.HTTPStatusError as exc:
             typer.echo(f"Recherche web refusée ({exc.response.status_code}) : {exc.response.text[:200]}", err=True)
             raise typer.Exit(1)
+        except httpx.TransportError as exc:
+            typer.echo(f"Recherche web injoignable ({exc!r}) : relancez, le travail fait est conservé", err=True)
+            raise typer.Exit(1)
     _log(conn, "linkedin", stats, debut)
 
 
@@ -81,6 +87,20 @@ def _do_scrape(s, conn, limit):
     with make_client(s.http_timeout) as client:
         stats = scrape.run(conn, Fetcher(client, s.user_agent, s.http_min_interval), limit=limit)
     _log(conn, "extraction", stats, debut)
+
+
+def _do_maps(s, conn, limit):
+    if not s.serper_api_key:
+        typer.echo("Configuration : SERPER_API_KEY manquant (Google Maps passe par Serper)", err=True)
+        raise typer.Exit(2)
+    debut = now()
+    with make_client(s.http_timeout) as client:
+        try:
+            stats = maps.run(conn, lambda q: serper_places(client, s.serper_api_key, q), limit=limit)
+        except httpx.HTTPError as exc:
+            typer.echo(f"Google Maps (Serper) en erreur : {exc!r} : relancez, le travail fait est conservé", err=True)
+            raise typer.Exit(1)
+    _log(conn, "standard_maps", stats, debut)
 
 
 def _do_emails(s, conn, smtp: bool, limit):
@@ -124,6 +144,13 @@ def cmd_scrape(limit: Optional[int] = None):
     _do_scrape(s, conn, limit)
 
 
+@app.command("standard")
+def cmd_standard(limit: Optional[int] = None):
+    """Étape 3b : standard du cabinet via Google Maps (même code postal + même nom), si le site n'a rien donné."""
+    s, conn = _ctx()
+    _do_maps(s, conn, limit)
+
+
 @app.command("emails")
 def cmd_emails(smtp: Optional[bool] = typer.Option(None, "--smtp/--no-smtp",
                                                     help="Forcer/désactiver la vérification SMTP (défaut : SMTP_ENABLED)"),
@@ -143,6 +170,7 @@ def cmd_run(dept: str = typer.Option(..., "--dept"), naf: str = "69.20Z",
     _do_websites(s, conn, limit, False)
     _do_linkedin(s, conn, limit, False)
     _do_scrape(s, conn, limit)
+    _do_maps(s, conn, limit)
     _do_emails(s, conn, s.smtp_enabled if smtp is None else smtp, limit)
 
 

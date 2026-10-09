@@ -5,6 +5,7 @@ from __future__ import annotations
 REGISTRE = 100            # donnée officielle (registre)
 DOMAINE_VALIDE = 100      # SIREN/SIRET/TVA trouvé sur le site
 TELEPHONE_SITE = 90       # numéro affiché sur le site validé
+TELEPHONE_MAPS = 80       # fiche Google Maps au même code postal et au nom du cabinet
 EMAIL_SITE_DIRIGEANT = 95 # email nominatif publié sur le site et rattaché au dirigeant
 EMAIL_SMTP_VALIDE = 90    # deviné puis accepté par SMTP sur un domaine non catch-all
 EMAIL_CABINET = 80        # email générique publié (contact@, accueil@…)

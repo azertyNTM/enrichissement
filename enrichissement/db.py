@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS companies (
     -- étape 3
     scrape_statut      TEXT,  -- NULL | fait | echec
     scrape_le          TEXT,
+    maps_statut        TEXT,  -- NULL | trouve | non_trouve (standard via Google Maps)
     -- RGPD / suivi commercial
     opt_out            INTEGER NOT NULL DEFAULT 0,
     converti           INTEGER NOT NULL DEFAULT 0,

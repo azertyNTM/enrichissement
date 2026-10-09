@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -21,6 +22,21 @@ class SearchProvider(Protocol):
     def search(self, query: str, count: int = 10) -> list[SearchResult]: ...
 
 
+def request_with_retry(send, attempts: int = 4):
+    """Retente les erreurs passagères (délai dépassé, 429, 5xx). Les refus définitifs (crédits, clé) remontent."""
+    for attempt in range(attempts):
+        try:
+            r = send()
+            if r.status_code != 429 and r.status_code < 500:
+                break
+        except httpx.TransportError:
+            if attempt == attempts - 1:
+                raise
+        time.sleep(2 ** attempt)
+    r.raise_for_status()
+    return r
+
+
 class BraveProvider:
     name = "brave"
     URL = "https://api.search.brave.com/res/v1/web/search"
@@ -29,12 +45,11 @@ class BraveProvider:
         self.client, self.api_key = client, api_key
 
     def search(self, query: str, count: int = 10) -> list[SearchResult]:
-        r = self.client.get(
+        r = request_with_retry(lambda: self.client.get(
             self.URL,
             params={"q": query, "count": count, "country": "fr", "search_lang": "fr"},
             headers={"X-Subscription-Token": self.api_key, "Accept": "application/json"},
-        )
-        r.raise_for_status()
+        ))
         results = (r.json().get("web") or {}).get("results") or []
         return [SearchResult(x.get("url", ""), x.get("title", ""), x.get("description", ""))
                 for x in results if x.get("url")]
@@ -48,15 +63,24 @@ class SerperProvider:
         self.client, self.api_key = client, api_key
 
     def search(self, query: str, count: int = 10) -> list[SearchResult]:
-        r = self.client.post(
+        r = request_with_retry(lambda: self.client.post(
             self.URL,
             json={"q": query, "gl": "fr", "hl": "fr", "num": count},
             headers={"X-API-KEY": self.api_key, "Content-Type": "application/json"},
-        )
-        r.raise_for_status()
+        ))
         results = r.json().get("organic") or []
         return [SearchResult(x.get("link", ""), x.get("title", ""), x.get("snippet", ""))
                 for x in results if x.get("link")]
+
+
+def serper_places(client: httpx.Client, api_key: str, query: str) -> list[dict]:
+    """Fiches Google Maps (titre, adresse, téléphone) via Serper."""
+    r = request_with_retry(lambda: client.post(
+        "https://google.serper.dev/places",
+        json={"q": query, "gl": "fr", "hl": "fr"},
+        headers={"X-API-KEY": api_key, "Content-Type": "application/json"},
+    ))
+    return r.json().get("places") or []
 
 
 def make_provider(name: str, client: httpx.Client, brave_key: str = "", serper_key: str = "") -> SearchProvider:
